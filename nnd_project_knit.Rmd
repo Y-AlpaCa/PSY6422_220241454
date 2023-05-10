@@ -1,0 +1,115 @@
+---
+title: "Number of Recorded Natural Disasters"
+author: '220241454'
+date: "2023-05"
+output:
+  pdf_document: default
+  html_document: default
+---
+# Change in Number of Recorded Natural Disasters, 1900 to 2022
+
+### Research Question
+
+This project looks into the how the number of natural disasters varied in the last 100 years. 
+This could allow interpretations of why and how the numbers changed as the way they did.  
+This project makes a plot of number of recorded natural disasters from 1900 to 2022.
+
+### Data Origin
+
+Data first published by [EM-DAT, CRED / UCLouvain, Brussels, Belgium](https://emdat.be/), 2022-11-27.
+Data was downloaded from [Our World in Data](https://ourworldindata.org/grapher/number-of-natural-disaster-events?time=earliest..latest). 
+This data includes all categories classified as "natural disasters", which includes drought, earthquakes, extreme temperatures, extreme weather, floods, fogs, glacial lake outbursts, landslide, dry mass movements, volcanic activity, and wildfires.
+
+```{r, warning=FALSE}
+#libraries
+
+library(tidyverse)
+library(magick)
+library(dplyr)
+
+#load data
+nnd <- read.csv("data/number-of-natural-disaster-events.csv")
+
+# to check loading worked
+head(nnd)
+```
+
+## Data preparation
+
+I selected a few disaster types and combined the rest into "other" because their number was small.
+
+```{r, warning=FALSE}
+#filter out data I want to focus on (all disasters, extreme weather, earthquake, flood, and drought)
+#rest of the data are combined as "other"
+
+#Group by year and entity, and sum the events
+
+disasters_sum <-nnd %>% 
+  group_by(Year, Entity) %>%
+  summarise(events_sum = sum(Number.of.reported.natural.disasters))
+
+#Sum "other" events 
+
+other <- disasters_sum %>%
+  filter(Entity %in% c("Fog", "Glacial lake outburst", "Dry mass movement", "Volcanic activity", "Extreme temperature", "Landslide")) %>% 
+  group_by(Year) %>%
+  summarise(events_sum = sum(events_sum)) %>% 
+  mutate(Entity = "Other")
+
+#Combine data frames
+
+binded <- bind_rows(disasters_sum, other)
+
+#sort by yeaar
+
+binded <- binded %>% 
+  arrange(Year)
+
+#filter
+
+nnd_filtered <- binded %>% 
+  filter(Entity %in% c("All disasters","Extreme weather","Earthquake","Flood","Drought","Other"))
+
+#check the first few lines
+
+head(nnd_filtered)
+
+#save the data frame
+
+write.csv(nnd_filtered, file = "processed/nnd_filtered.csv", row.names=FALSE)
+```
+
+### Data visualisation
+
+```{r, warning=FALSE}
+
+#setting the order of legand
+
+nnd_filtered$Entity <- 
+  factor(nnd_filtered$Entity, levels = c("All disasters", "Flood", "Extreme weather", "Earthquake", "Drought","Other"))
+
+#plot a graph
+
+bestfit <- ggplot(nnd_filtered, aes (x = Year, y = events_sum, group = Entity)) + 
+  geom_smooth (method = "gam", se = F, span = 2, aes (col = Entity), alpha = 0.5, size = 0.5) + 
+  geom_line (alpha = 0.8, size = 0.8, aes (col = Entity))  + 
+  ggtitle("Number of Natural Disaster Events") +
+  labs(title = "Number of Recorded Natural Disasters",subtitle = "1900 to 2022", 
+       x = "Year", y = "Number of events", 
+       fill = "natural disaster types", color = "Disaster Category") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
+bestfit
+```
+
+It could be suggested that there is strong increase in number of disasters recorded, specifically for disasters like flood and extreme weathers, which could be affected by human activity. 
+
+```{r, warning=FALSE}
+
+#save the image
+
+ggsave("nnd_bestfit.png", path = "outputs/", plot = bestfit, width=15, height=10,dpi=300)
+```
+
+### Summary
+
+This data could only suggest how the recording of the natural disaster haev changed across the year. This means many variables can affect the data, and it can be hard to make interpretations. This could be improved by including how human activities are related to natural disasters, and compare this data to changes in number of disasters like earthquakes, which can not be affected by human activities. 
